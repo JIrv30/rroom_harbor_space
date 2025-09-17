@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import LoginWithGoogle from './LoginWithGoogle'
-import logo from '../assets/kgs-logo.png'
+import logo from '../assets/KGS-Logo.png'
 
 export default function Landing() {
   const [session, setSession] = useState(null)

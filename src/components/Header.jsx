@@ -6,7 +6,7 @@ import LoginWithGoogle from './LoginWithGoogle'
 
 // ⚠️ Put your logo at: src/assets/kgabrunepark-logo.png
 //    Or change the import below to match your file name/path.
-import logo from '../assets/kgs-logo.png'
+import logo from '../assets/KGS-Logo.png'
 
 export default function Header() {
   const [session, setSession] = useState(null)
