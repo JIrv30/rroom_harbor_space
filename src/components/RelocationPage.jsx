@@ -44,29 +44,37 @@ function Drawer({ open, onClose, title, children }) {
   )
 }
 
-function SearchableSelect({ label, onSelect, placeholder = 'Search…' }) {
+function SearchableSelect({
+  label,
+  table,                 // e.g. 'students' or 'staff'
+  labelField,            // e.g. 'student_name' or 'Name'
+  select = `id, ${labelField}`, // extra cols ok: e.g. 'id, "Name", "Email Address (Main)"'
+  onSelect,
+  placeholder = 'Search…',
+  minChars = 2,
+  limit = 50,
+}) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
 
-  // simple debounce
   useEffect(() => {
     const q = query.trim()
-    if (!open || q.length < 2) { setItems([]); return }
+    if (!open || q.length < minChars) { setItems([]); return }
     const t = setTimeout(async () => {
       setLoading(true)
       const { data, error } = await supabase
-        .from('students')
-        .select('id, student_name')
-        .ilike('student_name', `%${q}%`)
-        .order('student_name', { ascending: true })
-        .limit(50)
+        .from(table)
+        .select(select)
+        .ilike(labelField, `%${q}%`)
+        .order(labelField, { ascending: true })
+        .limit(limit)
       if (!error) setItems(data ?? [])
       setLoading(false)
     }, 200)
     return () => clearTimeout(t)
-  }, [query, open])
+  }, [query, open, table, labelField, select, limit, minChars])
 
   return (
     <div className="w-full relative">
@@ -84,25 +92,31 @@ function SearchableSelect({ label, onSelect, placeholder = 'Search…' }) {
           {loading ? (
             <div className="p-3 text-sm text-gray-500">Searching…</div>
           ) : items.length === 0 ? (
-            <div className="p-3 text-sm text-gray-500">Type at least 2 letters…</div>
+            <div className="p-3 text-sm text-gray-500">
+              {query.trim().length < minChars ? `Type at least ${minChars} letters…` : 'No matches'}
+            </div>
           ) : (
-            items.map((it) => (
-              <button
-                type="button"
-                key={it.id}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { onSelect(it); setQuery(it.student_name); setOpen(false) }}
-                className="block w-full text-left px-3 py-2 hover:bg-gray-50"
-              >
-                {it.student_name}
-              </button>
-            ))
+            items.map((it) => {
+              const labelValue = it?.[labelField] ?? ''
+              return (
+                <button
+                  type="button"
+                  key={it.id ?? labelValue}
+                  onMouseDown={(e) => e.preventDefault()}   // keep input focus so click lands
+                  onClick={() => { onSelect(it); setQuery(labelValue); setOpen(false) }}
+                  className="block w-full text-left px-3 py-2 hover:bg-gray-50"
+                >
+                  {labelValue}
+                </button>
+              )
+            })
           )}
         </div>
       )}
     </div>
   )
 }
+
 
 
 function usePeopleOptions() {
@@ -335,7 +349,8 @@ const todayCounts = useMemo(() => {
         <form key={formKey} onSubmit={handleSubmit} className="space-y-4">
           <SearchableSelect
             label="Student"
-            items={students}
+            table="students"
+            labelField="student_name"
             itemToString={(s) => s?.student_name ?? ''}
             onSelect={(s) => update('student_name', s?.student_name ?? '')}
           />
@@ -363,8 +378,9 @@ const todayCounts = useMemo(() => {
           </div>
           <SearchableSelect
             label="Teacher Relocating"
-            items={staff}
-            itemToString={(t) => t?.Name ?? ''}
+            table="staff"
+            labelField="Name"
+            select={'id, "Name", "Email Address (Main)"'}
             onSelect={(t) => update('teacher_relocationg', t?.Name ?? '')}
           />
           <button type="submit" className="w-full rounded-xl bg-blue-600 text-white px-4 py-2 font-semibold">
