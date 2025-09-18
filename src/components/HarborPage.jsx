@@ -37,43 +37,66 @@ function Drawer({ open, onClose, title, children }) {
   )
 }
 
-function SearchableSelect({ label, items, itemToString, onSelect, placeholder = 'Search…' }) {
+function SearchableSelect({ label, onSelect, placeholder = 'Search…' }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return items
-    return items.filter((it) => (itemToString(it) || '').toLowerCase().includes(q))
-  }, [items, query, itemToString])
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  // simple debounce
+  useEffect(() => {
+    const q = query.trim()
+    if (!open || q.length < 2) { setItems([]); return }
+    const t = setTimeout(async () => {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, student_name')
+        .ilike('student_name', `%${q}%`)
+        .order('student_name', { ascending: true })
+        .limit(50)
+      if (!error) setItems(data ?? [])
+      setLoading(false)
+    }, 200)
+    return () => clearTimeout(t)
+  }, [query, open])
+
   return (
     <div className="w-full relative">
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
       <input
-        type="text" value={query}
+        type="text"
+        value={query}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
-        onFocus={() => setOpen(true)} placeholder={placeholder}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
         className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       {open && (
         <div className="absolute z-10 mt-2 w-full max-h-48 overflow-auto rounded-xl border border-gray-200 bg-white shadow">
-          {filtered.length === 0 ? (
-            <div className="p-3 text-sm text-gray-500">No matches</div>
-          ) : filtered.map((it, idx) => (
-            <button
-              type="button"
-              key={it.id ?? itemToString(it) ?? idx}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { const label = itemToString(it) || ''; onSelect(it); setQuery(label); setOpen(false) }}
-              className="block w-full text-left px-3 py-2 hover:bg-gray-50"
-            >
-              {itemToString(it)}
-            </button>
-          ))}
+          {loading ? (
+            <div className="p-3 text-sm text-gray-500">Searching…</div>
+          ) : items.length === 0 ? (
+            <div className="p-3 text-sm text-gray-500">Type at least 2 letters…</div>
+          ) : (
+            items.map((it) => (
+              <button
+                type="button"
+                key={it.id}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { onSelect(it); setQuery(it.student_name); setOpen(false) }}
+                className="block w-full text-left px-3 py-2 hover:bg-gray-50"
+              >
+                {it.student_name}
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>
   )
 }
+
 
 function usePeopleOptions() {
   const [students, setStudents] = useState([])
